@@ -50,3 +50,29 @@ if __name__ == "__main__":
     
     print(f"Height (with temperature): {height1:.2f} m")
     print(f"Height (isothermal): {height2:.2f} m")
+
+    # Max Temp Change (Burj Khalifa) = 7.5 degrees celcius
+    # def get_pressure_height(df):
+    #     T0 = 288.15  # Standard temperature at sea level in Kelvin
+    #     L = 0.0065   # Temperature lapse rate in K/m
+    #     P0 = 101325  # Standard atmospheric pressure at sea level in Pascals
+    #     R = 8.314    # Universal gas constant in J/(mol·K)
+    #     g = 9.80665  # Acceleration due to gravity in m/s²
+    #     # M = 0.0289644  # Molar mass of dry air in kg/mol
+    #     humidity = 0.25
+    #     M = humidity * 0.0180 + (1 - humidity) * 0.0289644
+
+    #     assert 'pressure' in df.columns, "DataFrame must contain a 'pressure' column."
+        
+    #     df['pHeight'] = 0.0
+
+    #     # Calculate height from pressure using the barometric formula
+    #     for i in range(len(df)):
+    #         P = df['pressure'].iloc[i] * 100  # Pressure in Pascals
+    #         if P <= 0:
+    #             raise ValueError("Pressure must be positive.")
+            
+    #         height = (T0 / L) * (1 - (P / P0)**(R * L / (g * M)))
+    #         df.at[i, 'pHeight'] = height
+
+    #     df["pHeight"] = df["pHeight"] - df["pHeight"].iloc[0];
