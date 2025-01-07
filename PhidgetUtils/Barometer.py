@@ -1,12 +1,15 @@
 from Phidget22.Phidget import *
 from Phidget22.Devices.PressureSensor import *
 
+from scipy.constants import R as R_universal
+from scipy.constants import g as g0
+import numpy as np
+
 
 class PhidgetBarometer:
     
     def __init__(self, data_rate):
         self._pressure = 0.0  # Pressure in Pascals
-        self._timestamp = -1  # Timestamp of the latest reading
         self._data_rate = data_rate  # Desired data rate
 
         self._barometer = PressureSensor()
@@ -22,16 +25,15 @@ class PhidgetBarometer:
         """Stop the barometer by closing the connection."""
         self._barometer.close()
 
-    def updatePressure(self, pressure, timestamp):
+    def updatePressure(self, barometer, pressure):
         """
         Update the pressure value and timestamp.
         :param pressure: The pressure reading in Pascals.
         :param timestamp: The timestamp of the reading.
         """
-        self._timestamp = timestamp
         self._pressure = pressure
 
-    def on_attach(self):
+    def on_attach(self, Barometer):
         """
         Event handler for when the barometer is attached.
         Resets the timestamp and sets the data rate.
@@ -63,9 +65,31 @@ class PhidgetBarometer:
         """
         return self._pressure
 
-    def getTimestamp(self):
+
+    @staticmethod
+    def convert_to_height(pressure, temperature=None):
         """
-        Get the timestamp of the latest pressure reading.
-        :return: Timestamp as an integer.
+        Convert given pressure to height,
+        @params
+        pressure: given pressure
         """
-        return self._timestamp
+        # Constants
+        P_b = 101325  # Reference pressure at sea level (Pa)
+        T_Mb = 288.15  # Reference temperature (K)
+        L_Mb = -0.0065  # Temperature lapse rate (K/m)
+        M = 0.0289644  # Molar mass of Earth's air (kg/mol)
+        h_b = 0  # Reference height (m) - using sea level as reference
+        
+        if temperature is not None:
+            # Use first equation (with lapse rate)
+            # P = Pb[1 - (L_M,b/T_M,b)(h - hb)]^(g0*M0)/(R*L_M,b)
+            exponent = (g0 * M) / (R_universal * L_Mb)
+            term = 1 - (pressure / P_b) ** (1 / exponent)
+            height = (T_Mb * term) / L_Mb + h_b
+            
+        else:
+            # Use second equation (isothermal case)
+            # P = Pb * exp[(-g0*M(h - hb))/(R*T_M,b)]
+            height = -(R_universal * T_Mb) / (g0 * M) * np.log(pressure / P_b) + h_b
+        
+        return height
