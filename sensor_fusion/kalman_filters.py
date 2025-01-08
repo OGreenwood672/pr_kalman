@@ -66,20 +66,64 @@ class KalmanFilter:
         I = np.eye(2)
         self.P = np.dot((I - np.dot(K, self.H)), self.P)
     
-    def update_with_model(self, corrected_height, corrected_velocity):
-        # Measurement update using the corrected height and velocity
-        Z = np.array([[corrected_height], [corrected_velocity]])  # Corrected measurements
-        Y = Z - self.x  # Innovation (measurement residual)
+    # def update_with_model(self, corrected_height, corrected_velocity):
+    #     # Measurement update using the corrected height and velocity
+    #     Z = np.array([[corrected_height], [corrected_velocity]])  # Corrected measurements
+    #     Y = Z - self.x  # Innovation (measurement residual)
         
-        # Compute the Kalman Gain
-        S = self.P + self.R  # Innovation covariance
-        K = np.dot(self.P, np.linalg.inv(S))  # Kalman gain
+    #     # Compute the Kalman Gain
+    #     S = self.P + self.R  # Innovation covariance
+    #     K = np.dot(self.P, np.linalg.inv(S))  # Kalman gain
         
-        # Update the estimate with the corrected measurements
-        self.x = self.x + np.dot(K, Y)
+    #     # Update the estimate with the corrected measurements
+    #     self.x = self.x + np.dot(K, Y)
         
-        # Update the error covariance
-        self.P = self.P - np.dot(K, self.P)
+    #     # Update the error covariance
+    #     self.P = self.P - np.dot(K, self.P)
+
+    def predict_with_state(self, height, velocity, dt):
+        """
+        Predict next state using direct height and velocity measurements
+        
+        Args:
+            height (float): Measured height
+            velocity (float): Measured velocity
+            dt (float): Time step in seconds
+        """
+        # State transition matrix
+        A = np.array([[1, dt],
+                     [0, 1]])
+        
+        # Current measurement
+        z = np.array([[height],
+                     [velocity]])
+        
+        # Predict state using state transition
+        x_pred = np.dot(A, self.x)
+        
+        # Update process noise covariance for position and velocity
+        pos_variance = 0.5 * self.accelerometer_variance * (dt**4)  # Position uncertainty
+        vel_variance = self.accelerometer_variance * (dt**2)        # Velocity uncertainty
+        pos_vel_covariance = 0.5 * self.accelerometer_variance * (dt**3)  # Position-velocity covariance
+        
+        self.Q = np.array([[pos_variance, pos_vel_covariance],
+                          [pos_vel_covariance, vel_variance]])
+        
+        # Predict covariance
+        P_pred = np.dot(np.dot(A, self.P), A.T) + self.Q
+        
+        # Measurement noise covariance
+        R = np.array([[self.barometer_variance, 0],
+                     [0, self.accelerometer_variance]])  # Assuming velocity has similar noise to acceleration
+        
+        # Kalman gain
+        H = np.eye(2)  # Full state measurement
+        S = np.dot(np.dot(H, P_pred), H.T) + R
+        K = np.dot(np.dot(P_pred, H.T), np.linalg.inv(S))
+        
+        # Update state and covariance
+        self.x = x_pred + np.dot(K, (z - np.dot(H, x_pred)))
+        self.P = np.dot((np.eye(2) - np.dot(K, H)), P_pred)
 
     def get_estimate(self):
         return self.x[0, 0], self.x[1, 0]  # Height and velocity
