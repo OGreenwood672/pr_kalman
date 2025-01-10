@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 from sensor_fusion import kalman_filters, height
 from scipy.signal import find_peaks
 import json
+import joblib
 
 from time import sleep, time
 
@@ -329,48 +330,45 @@ def save(lift_id, dx, dbx, max_v, da1, da2, dt, curr_floor, new_floor):
 
 def main():
 
-    acc = attach_accelerometer()
-    bar = attach_barometer()
+    # acc = attach_accelerometer()
+    # bar = attach_barometer()
 
-    lift_id = input("Enter lift id: ")
+    # lift_id = input("Enter lift id: ")
+
+    # rf_model = joblib.load('random_forest_model.pkl')
 
     while True:
         print("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n********************")
 
-        # datastreams = "./datastreams"
-        # dtype = [('timestamp', 'int32'), ('acceleration', 'float32'), ('pressure', 'float32')]
-        # data_size_from_mins = lambda mins : int(FREQUENCY * 60 * mins)
-        # data_shape = (data_size_from_mins(10),)
+        datastreams = "./datastreams"
+        dtype = [('timestamp', 'int32'), ('acceleration', 'float32'), ('pressure', 'float32')]
+        data_size_from_mins = lambda mins : int(FREQUENCY * 60 * mins)
+        data_shape = (data_size_from_mins(10),)
 
-        # data_path = f"{datastreams}/{os.listdir(datastreams)[0]}/0.dat"
-        # data = np.memmap(data_path, dtype=dtype, mode='r', shape=data_shape)[350:600]
-        # df = pd.DataFrame(data, columns=['timestamp', 'acceleration', 'pressure'])
+        data_path = f"{datastreams}/{os.listdir(datastreams)[0]}/0.dat"
+        data = np.memmap(data_path, dtype=dtype, mode='r', shape=data_shape)[:350]
+        df = pd.DataFrame(data, columns=['timestamp', 'acceleration', 'pressure'])
 
-        df = pd.read_csv('./error.csv')
+        # df = pd.read_csv('./error.csv')
 
 
-        curr_floor = int(input("Enter the current floor: "))
-        input("Enter to start: ")
+        # curr_floor = int(input("Enter the current floor: "))
+        # input("Enter to start: ")
 
         # df = get_journey_data(acc, bar)
 
 
         df = cut_df(df, 0.02, 5, ACCELERATION)
 
-        new_floor = int(input("What floor are we on now: "))
-
         try:
 
             df[TIMESTAMP] -= df[TIMESTAMP].iloc[0]
             df[TIMESTAMP] /= 1000
 
-            drift_correction(df, ACCELERATION, 0.02)
+            # drift_correction(df, ACCELERATION, 0.02)
+            df[ACCELERATION] -= df[ACCELERATION].mode().mean()
             smooth_kalman(df, ACCELERATION, 0.05)
             integrate(df, ACCELERATION, TIMESTAMP, VELOCITY)
-
-            df = modify_velocity_profile(df, 0.01)
-
-            integrate(df, VELOCITY, TIMESTAMP, DISPLACEMENT)
 
             integrate(df, VELOCITY, TIMESTAMP, DISPLACEMENT)
 
@@ -379,20 +377,33 @@ def main():
             smooth_kalman(df, BAROMETER_DISPLACEMENT, 0.5)
 
         except:
-            
-            chart(df, VELOCITY)
-
+            chart(df, ACCELERATION)
             df.to_csv('./error.csv')
             print("[ERROR]")
-            return
+            continue
 
         chart(df, ACCELERATION)
         chart(df, VELOCITY)
         chart(df, DISPLACEMENT)
         chart(df, BAROMETER_DISPLACEMENT)
 
-        save(lift_id, *get_features(df), curr_floor, new_floor)
-        input("Enter to continue: ")
+        # features = get_features(df)
+
+
+        # df_to_predict = pd.DataFrame({
+        #     "dx": [features[0]],
+        #     "dbx": [features[1]],
+        #     "max_v": [features[2]],
+        #     "da1": [features[3]],
+        #     "da2": [features[4]],
+        #     "dt": [features[5]],
+        #     "curr_floor": [curr_floor],
+        # })
+        # predictions = rf_model.predict(df_to_predict)
+        # new_floor = int(input(f"What floor are we on now, I think we are on {predictions[0]}: "))
+
+        # save(lift_id, *features, curr_floor, new_floor)
+        # input("Enter to continue: ")
 
 if __name__ == "__main__":
     main()
