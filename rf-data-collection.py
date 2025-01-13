@@ -4,23 +4,19 @@ import numpy as np
 import os
 import pandas as pd
 import threading
-import matplotlib.pyplot as plt
-from sensor_fusion import kalman_filters, height
+from sensor_fusion import height
 from scipy.signal import find_peaks
 import json
 import joblib
 
-from time import sleep, time
+from utils import *
+from globals import *
+
+from time import sleep
 
 FREQUENCY = 10
 STOP_REQUEST = False
 
-ACCELERATION = 'acceleration'
-PRESSURE = 'pressure'
-TIMESTAMP = 'timestamp'
-VELOCITY = 'velocity'
-DISPLACEMENT = 'displacement'
-BAROMETER_DISPLACEMENT = 'barometer_displacement'
 
 def attach_accelerometer():
     acc = PhidgetUtils.PhidgetAccelerometer(data_rate=FREQUENCY)
@@ -54,8 +50,8 @@ def modify_velocity_profile(df, threshold=0.01):
     """
     # Create a copy to avoid modifying original data
     modified_df = df.copy()
-    velocities = df[VELOCITY].values
-    times = df[TIMESTAMP].values
+    velocities = df[MODEL_VELOCITY].values
+    times = df[TIMESTAMPS].values
    
     # Calculate velocity changes to detect significant movements
     vel_changes = np.abs(np.gradient(velocities))
@@ -91,40 +87,10 @@ def modify_velocity_profile(df, threshold=0.01):
     offset = velocities[second_hump_start_idx]
    
     # Apply linear offset
-    linear_offset(modified_df, VELOCITY, offset, first_hump_start_idx, second_hump_start_idx)
-    modified_df.loc[second_hump_start_idx + 1:, [VELOCITY]] -= offset
+    linear_offset(modified_df, MODEL_VELOCITY, offset, first_hump_start_idx, second_hump_start_idx)
+    modified_df.loc[second_hump_start_idx + 1:, [MODEL_VELOCITY]] -= offset
    
     return modified_df
-
-def drift_correction(df, col, bound):
-    """
-    Removes the offset on the acceleration
-    @params
-    df: dataframe
-    bound: how much the function will accept a lack of significant movement
-    """
-    rolling_sum = 0
-    num_of_pnts = 0
-    for acc in df[col]:
-        if acc == df[col].iloc[0] or abs(rolling_sum / num_of_pnts - acc) < bound:
-            rolling_sum += acc
-            num_of_pnts += 1
-    df[col] -= rolling_sum / num_of_pnts
-
-def linear_offset(df, label, offset, start, stop):
-    """
-    time-dependent correction or transformation of the label values,
-    with the offset controlling how much change happens across the time range
-    @params
-    df: dataframe
-    label: column name to edit
-    offset: 
-    start: 
-    stop: 
-    """
-    dt = df[TIMESTAMP].iloc[stop] - df[TIMESTAMP].iloc[start]
-    for i in range(start, stop + 1):
-        df.at[i, label] = df[label].iloc[i] - offset * ((df[TIMESTAMP].iloc[i] - df[TIMESTAMP].iloc[start]) / dt)
 
 
 def cut_df(df, threshold, buffer, col='value'):
@@ -164,86 +130,6 @@ def cut_df(df, threshold, buffer, col='value'):
     # Return the sliced DataFrame
     return df.iloc[start_index:end_index + 1].reset_index(drop=True)
 
-def integrate(df, u, v, new_name):
-    """
-    Integration of u by v
-    @params:
-    df: dataframe
-    u, v: ∫ u dv
-    new_name: resulting columns name
-    """
-    assert u in df.columns, f"DataFrame must include {u}"
-    assert v in df.columns, f"DataFrame must include {v}"
-    df[new_name] = 0.0
-
-    for i in range(1, len(df)):
-        avg_u = (df[u].iloc[i] + df[u].iloc[i - 1]) / 2
-        dv = df[v].iloc[i] - df[v].iloc[i - 1]
-        
-        df.at[i, new_name] = df[new_name].iloc[i - 1] + avg_u * dv
-
-def smooth_kalman(df, col, variance):
-    kf = kalman_filters.SingleValueKalmanFilter(0, variance)
-    smoothed = []
-    for i in df.index:
-        v = df[col].iloc[i]
-
-        if not i:
-            dt = df[TIMESTAMP].iloc[0]
-        else:
-            dt = (df[TIMESTAMP].iloc[i] - df[TIMESTAMP].iloc[i - 1])
-
-        smoothed.append(kf.update(v, dt))
-    
-    df[col] = smoothed
-
-def magnitude(v):
-    return v[0] * v[0] + v[1] * v[1] + v[2] * v[2]
-
-def sign(v):
-    return 1 if v > 0 else -1
-
-def chart(df, col1, col2=None):
-    fig, ax1 = plt.subplots()
-
-    labels = {
-        ACCELERATION: 'Acceleration (m/s^2)',
-        DISPLACEMENT: 'Height (m)',
-        VELOCITY: 'Velocity (m/s)',
-        # TRUE_DISPLACEMENT: "True Height (m)",
-        BAROMETER_DISPLACEMENT: "Barometer Height (m)",
-        # TRUE_VELOCITY: "True Velocity (m/s)"
-    }
-    col1_label = labels.get(col1)
-    if col1_label == None: col1_label = col1
-
-    ax1.set_xlabel('Time (s)')
-    ax1.set_ylabel(col1_label, color='tab:blue')
-
-    ax1.plot(df['timestamp'], df[col1], color='tab:blue', label=col1)
-    ax1.tick_params(axis='y', labelcolor='tab:blue')   
-    plt.axhline(y=0, color='r', linestyle='--', label='y=0')
-
-    if col2 != None:
-        ax2 = ax1.twinx()
-        ax2.set_ylabel(col2, color='tab:red')
-
-        ax2.plot(df['timestamp'], df[col2], color='tab:red', label=col2)
-        ax2.tick_params(axis='y', labelcolor='tab:red')
-
-        minimum = min(ax1.get_ylim()[0], ax2.get_ylim()[0])
-        maximum = max(ax1.get_ylim()[1], ax2.get_ylim()[1])
-        ax1.set_ylim(minimum, maximum)
-        ax2.set_ylim(minimum, maximum)
-
-        plt.title(f'{col1_label} and {col2} vs. Time')
-    
-    else:
-        plt.title(f'{col1_label} vs. Time') 
-
-    fig.tight_layout()
-
-    plt.show()
 
 def stop_checker():
     global STOP_REQUEST
@@ -275,16 +161,16 @@ def get_journey_data(acc, bar):
 
 def get_features(df):
         
-    dx = df[DISPLACEMENT].iloc[len(df) - 1]
+    dx = df[MODEL_DISPLACEMENT].iloc[len(df) - 1]
 
-    dbx = df[BAROMETER_DISPLACEMENT].tail(15).mean()
+    dbx = df[BAROMETER_HEIGHT].tail(15).mean()
 
-    # Maximum absolute value from VELOCITY column
-    max_v = df[VELOCITY].abs().max()
+    # Maximum absolute value from MODEL_VELOCITY column
+    max_v = df[MODEL_VELOCITY].abs().max()
     
     # Determine if dv is positive by checking original value at max absolute position
-    max_vel_idx = df[VELOCITY].abs().idxmax()
-    is_dv_positive = df.loc[max_vel_idx, VELOCITY] > 0
+    max_vel_idx = df[MODEL_VELOCITY].abs().idxmax()
+    is_dv_positive = df.loc[max_vel_idx, MODEL_VELOCITY] > 0
     
     # Get da1 and da2 based on velocity direction
     if is_dv_positive:
@@ -294,7 +180,7 @@ def get_features(df):
         da1 = df[ACCELERATION].min()
         da2 = df[ACCELERATION].max()
     
-    dt = df[TIMESTAMP].iloc[len(df) - 1]
+    dt = df[TIMESTAMPS].iloc[len(df) - 1]
 
     return dx, dbx, max_v, da1, da2, dt
 
@@ -362,19 +248,19 @@ def main():
 
         try:
 
-            df[TIMESTAMP] -= df[TIMESTAMP].iloc[0]
-            df[TIMESTAMP] /= 1000
+            df[TIMESTAMPS] -= df[TIMESTAMPS].iloc[0]
+            df[TIMESTAMPS] /= 1000
 
             # drift_correction(df, ACCELERATION, 0.02)
             df[ACCELERATION] -= df[ACCELERATION].mode().mean()
             smooth_kalman(df, ACCELERATION, 0.05)
-            integrate(df, ACCELERATION, TIMESTAMP, VELOCITY)
+            integrate(df, ACCELERATION, TIMESTAMPS, MODEL_VELOCITY)
 
-            integrate(df, VELOCITY, TIMESTAMP, DISPLACEMENT)
+            integrate(df, MODEL_VELOCITY, TIMESTAMPS, MODEL_DISPLACEMENT)
 
-            df[BAROMETER_DISPLACEMENT] = df[PRESSURE].apply(height.calculate_height)
-            drift_correction(df, BAROMETER_DISPLACEMENT, 0.5)
-            smooth_kalman(df, BAROMETER_DISPLACEMENT, 0.5)
+            df[BAROMETER_HEIGHT] = df[PRESSURE].apply(height.calculate_height)
+            drift_correction(df, BAROMETER_HEIGHT, 0.5)
+            smooth_kalman(df, BAROMETER_HEIGHT, 0.5)
 
         except:
             chart(df, ACCELERATION)
@@ -383,9 +269,9 @@ def main():
             continue
 
         chart(df, ACCELERATION)
-        chart(df, VELOCITY)
-        chart(df, DISPLACEMENT)
-        chart(df, BAROMETER_DISPLACEMENT)
+        chart(df, MODEL_VELOCITY)
+        chart(df, MODEL_DISPLACEMENT)
+        chart(df, BAROMETER_HEIGHT)
 
         # features = get_features(df)
 

@@ -1,5 +1,6 @@
 import numpy as np
-import matplotlib.pyplot as plt
+
+# Touch at your own risk
 
 class KalmanFilter:
     def __init__(

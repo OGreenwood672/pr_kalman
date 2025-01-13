@@ -6,6 +6,9 @@ from globals import *
 def sign(v):
     return 1 if v > 0 else -1
 
+def magnitude(v):
+    return v[0] * v[0] + v[1] * v[1] + v[2] * v[2]
+
 def drift_correction(df, col, bound):
     """
     Removes the offset on the acceleration
@@ -20,6 +23,22 @@ def drift_correction(df, col, bound):
             rolling_sum += acc
             num_of_pnts += 1
     df.loc[0:len(df), [col]] -= rolling_sum / num_of_pnts
+
+
+def linear_offset(df, label, offset, start, stop):
+    """
+    time-dependent correction or transformation of the label values,
+    with the offset controlling how much change happens across the time range
+    @params
+    df: dataframe
+    label: column name to edit
+    offset: 
+    start: 
+    stop: 
+    """
+    dt = df[TIMESTAMPS].iloc[stop] - df[TIMESTAMPS].iloc[start]
+    for i in range(start, stop + 1):
+        df.at[i, label] = df[label].iloc[i] - offset * ((df[TIMESTAMPS].iloc[i] - df[TIMESTAMPS].iloc[start]) / dt)
 
 
 def differentiate(df, u, v, new_name):
@@ -60,6 +79,14 @@ def integrate(df, u, v, new_name):
 
 
 def smooth_kalman(df, col, variance):
+    """
+    Smooths column of dataframe using single kalman filter
+    @params
+    df: Python Pandas DataFrame
+    col: Column to be smoothed
+    variance: The variance of the noise on the column
+    """
+
     kf = SingleValueKalmanFilter(0, variance)
     smoothed = []
     for i in range(len(df)):
@@ -76,6 +103,16 @@ def smooth_kalman(df, col, variance):
 
 
 def chart(df, col1, col2=None):
+    """
+    Chart function to plot col1 by time
+    If col2 is supplied, they are plotted against each other
+
+    @params
+    df: Python Pandas DataFrame
+    col1: The column on the y-axis
+    col2: (Optional) Column to be plotted on the other y-axis
+    """
+
     fig, ax1 = plt.subplots()
 
     labels = {
