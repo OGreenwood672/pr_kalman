@@ -171,8 +171,7 @@ def split_dataframe_by_stages(df, buffer):
 def main():
 
     datastreams = "./datastreams"
-    folder = os.listdir(datastreams)[7]
-    print(folder)
+    folder = input("Enter folder name to analyse: ")
     dtype = [('timestamp', 'int32'), ('acceleration', 'float32'), ('pressure', 'float32')]
     data_size_from_mins = lambda mins : int(FREQUENCY * 60 * mins)
     data_shape = (data_size_from_mins(15),)
