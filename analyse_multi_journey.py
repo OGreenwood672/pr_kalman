@@ -171,13 +171,14 @@ def split_dataframe_by_stages(df, buffer):
 def main():
 
     datastreams = "./datastreams"
-    folder = os.listdir(datastreams)[2]
+    folder = os.listdir(datastreams)[7]
+    print(folder)
     dtype = [('timestamp', 'int32'), ('acceleration', 'float32'), ('pressure', 'float32')]
     data_size_from_mins = lambda mins : int(FREQUENCY * 60 * mins)
-    data_shape = (data_size_from_mins(10),)
+    data_shape = (data_size_from_mins(15),)
 
     data_path = f"{datastreams}/{folder}/0.dat"
-    data = np.memmap(data_path, dtype=dtype, mode='r', shape=data_shape)[:1500]
+    data = np.memmap(data_path, dtype=dtype, mode='r', shape=data_shape)
 
     df = pd.DataFrame(data, columns=['timestamp', 'acceleration', 'pressure'])
 
@@ -195,8 +196,8 @@ def main():
 
     
     # Get initial stages
-    df[ACCELERATION] -= df[ACCELERATION].mode().mean()
-    get_stages(df, maxlen=15, mean_threshold=0.02, variance_threshold=0.00005, buffer_seconds=5)
+    df[ACCELERATION] -= df[ACCELERATION].round(3).mode().mean()
+    get_stages(df, maxlen=15, mean_threshold=0.02, variance_threshold=0.00005, buffer_seconds=3)
 
     df[STAGES] /= 8
     chart(df, ACCELERATION, STAGES)
