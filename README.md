@@ -44,11 +44,10 @@
 
 2. **Start Data Collection**
 
-   - Open the Jupyter Notebook: `data_stream_collection.ipynb`.
-   - Click **Run All** to initialize the program.
-   - A TKinter application will appear — click **Start**.
+   - Run: `data-collection.py`.
+   - A TKinter application will appear — click **Start** when still on the ground floor.
 
-   **Note for Linux Users:** You must run the data collection process with `sudo` to ensure proper access to the USB devices.
+   **Note for Linux Users:** You must run the data collection process with `sudo -E python data-collection.py` to ensure proper access to the USB devices.
 
 3. **Record Lift Movements**
 
