@@ -30,10 +30,26 @@
 
 3. **Deactivate the Virtual Environment:**
 
-   - To deactivate, simply run:
+   - To deactivate the virtual environment, simply run:
      ```
      deactivate
      ```
+
+4. **Reactivating the Virtual Environment:**
+
+   - Every time you return to the project, you need to activate the virtual environment before running any scripts:
+     
+     ### Windows:
+     ```
+     venv\Scripts\activate
+     ```
+
+     ### Linux/Mac:
+     ```
+     source venv/bin/activate
+     ```
+
+---
 
 ## **Data Collection Instructions**
 
@@ -86,5 +102,5 @@
 ### **Notes**
 
 - For consistent results, follow the recommended movement pattern during data collection.
+- **Always activate the virtual environment before running any scripts** using the instructions provided in the "First Time Setup Instructions."
 - Remember to deactivate the virtual environment when finished by running `deactivate`.
-
