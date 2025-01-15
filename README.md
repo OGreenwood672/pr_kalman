@@ -111,3 +111,8 @@
 
 - Run `pdoc PhidgetUtils sensor_fusion analyse_journey.py analyse_multi_journey.py globals.py utils.py`
 - If that fails, use the docstrings inside the files - they are the same thing
+
+## Future Improvement
+
+My final day of work I have found barometer can be affected by acceleration, leading to lag. >:[
+This may lead to error when accelerating larger amount, however eventual consistency is better.

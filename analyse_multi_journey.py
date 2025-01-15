@@ -506,11 +506,11 @@ def main():
         
         df.update(journey.set_index(TIMESTAMPS))
 
-    print("Based on Barometer:")
+    print("Based on Accelerometer:")
     floor_journey = get_floor_journey(delta_heights_model_displacement)
     print(' -> '.join([str(i) for i in floor_journey]))
 
-    print("Based on Accelerometer:")
+    print("Based on Barometer:")
     floor_journey = get_floor_journey(delta_heights_barometer_height)
     print(' -> '.join([str(i) for i in floor_journey]))
 
@@ -518,9 +518,9 @@ def main():
     floor_journey = get_floor_journey(delta_heights_true_displacement)
     print(' -> '.join([str(i) for i in floor_journey]))
 
-    for i in journey_end_index[::-1]:
-        df.loc[i:, [MODEL_DISPLACEMENT]] += df[MODEL_DISPLACEMENT].iloc[i - 1]
-        df.loc[i:, [BAROMETER_HEIGHT]] += df[BAROMETER_HEIGHT].iloc[i - 1]
+    # for i in journey_end_index[::-1]:
+    #     df.loc[i:, [MODEL_DISPLACEMENT]] += df[MODEL_DISPLACEMENT].iloc[i - 1]
+    #     df.loc[i:, [BAROMETER_HEIGHT]] += df[BAROMETER_HEIGHT].iloc[i - 1]
 
     chart(df, MODEL_DISPLACEMENT)
     chart(df, BAROMETER_HEIGHT)
