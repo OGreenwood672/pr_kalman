@@ -70,6 +70,7 @@
 
    - Press **all the floor buttons** on the lift, ascending **one floor at a time** to the top.
    - Once at the top, you can freely move between floors.
+   - Remember to record the actual journey you took in order to compare results later!
 
 4. **Save Collected Data**
 
