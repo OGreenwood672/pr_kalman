@@ -117,3 +117,4 @@
 
 My final day of work I have found barometer can be affected by acceleration, leading to lag. >:[
 This may lead to error when accelerating larger amount, however eventual consistency is better.
+Using this knowledge may lead to a better fusion rather than a blanket Kalman filter.
