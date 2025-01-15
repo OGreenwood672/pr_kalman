@@ -6,11 +6,30 @@ from utils import *
 def get_true_values(df, accelerometer_variance, barometer_variance):
 
     """
-    Integrates the kalman filter to predict better values by combining the sensors
-    @params
-    df: dataframe with data
-    accelerometer_variance: The variance of the accelerometer
-    barometer_variance: The variance of the barometer
+    Uses a Kalman filter to combine accelerometer and barometer data to estimate true displacement and velocity.
+
+    The function integrates the Kalman filter to provide a more accurate estimate of the true displacement
+    and velocity by fusing data from the accelerometer and barometer sensors. The Kalman filter is updated 
+    with each new measurement in the DataFrame, considering the given variances for both sensors.
+
+    Args:
+        df (pd.DataFrame): The DataFrame containing sensor data. It must have the following columns:
+                           - ACCELERATION: Acceleration data from the accelerometer.
+                           - TIMESTAMPS: Timestamps of sensor readings.
+                           - BAROMETER_HEIGHT: Barometer height data.
+        accelerometer_variance (float): The variance of the accelerometer sensor, used in the Kalman filter.
+        barometer_variance (float): The variance of the barometer sensor, used in the Kalman filter.
+
+    Returns:
+        None: The function updates the input DataFrame in place, adding the estimated true displacement and velocity 
+              in the columns TRUE_DISPLACEMENT and TRUE_VELOCITY.
+
+    Example:
+        get_true_values(df, accelerometer_variance=0.01, barometer_variance=0.1)
+
+    Notes:
+        The Kalman filter predicts the next state using accelerometer data and then corrects the prediction 
+        using the barometer data. The updated true displacement and velocity estimates are stored in the DataFrame.
     """
 
     kf = KalmanFilter(0, 0, accelerometer_variance, barometer_variance)
@@ -33,6 +52,40 @@ def get_true_values(df, accelerometer_variance, barometer_variance):
 
 
 def analyse_journey(journey):
+
+    """
+    Analyzes a single journey by applying various data processing steps, including smoothing, integration,
+    drift correction, and sensor fusion.
+
+    The function processes the given journey's sensor data by:
+    1. Smoothing accelerometer data using a Kalman filter.
+    2. Removing the mean from the accelerometer data for normalization.
+    3. Integrating acceleration to compute velocity and then integrating velocity to compute displacement.
+    4. Applying barometer height calculation, drift correction, and smoothing on the barometer data.
+    5. Using a sensor fusion approach to estimate true displacement and velocity.
+
+    Args:
+        journey (pd.DataFrame): A DataFrame representing a single journey's sensor data. It must have the following columns:
+            - ACCELERATION: Acceleration data from the accelerometer.
+            - TIMESTAMPS: Timestamps of sensor readings.
+            - PRESSURE: Pressure data from the barometer.
+            - MODEL_VELOCITY: The model velocity (calculated from the accelerometer).
+            - MODEL_DISPLACEMENT: The model displacement (calculated from the velocity).
+            - BAROMETER_HEIGHT: The barometer height, which will be calculated and corrected.
+        
+    Returns:
+        None: The function processes and updates the `journey` DataFrame in place, adding new columns for processed
+              data such as smoothed values, velocity, displacement, and corrected barometer height.
+    
+    Example:
+        analyse_journey(journey)
+
+    Notes:
+        - The function relies on Kalman filtering to smooth accelerometer and barometer data.
+        - Integration is performed on acceleration to calculate velocity and on velocity to calculate displacement.
+        - The barometer height is corrected using a drift correction method and normalized.
+        - True displacement and velocity estimates are derived by combining the accelerometer and barometer data.
+    """
 
     smooth_kalman(journey, ACCELERATION, ACCELEROMETER_VARIANCE)
     journey.loc[0:len(journey), [ACCELERATION]] -= journey[ACCELERATION].mode().mean()

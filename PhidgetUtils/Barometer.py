@@ -7,8 +7,26 @@ import numpy as np
 
 
 class PhidgetBarometer:
+    """
+    A wrapper class for interfacing with the Phidget Barometer (Pressure Sensor) device.
     
+    This class allows for the collection of pressure data from the Phidget barometer and can convert pressure readings
+    into height using the barometric formula. It supports setting the data rate, calibrating the sensor, and managing
+    its attachment status.
+
+    Attributes:
+        _pressure (float): The current pressure reading in Pascals.
+        _data_rate (int): The desired data rate for the barometer (in Hz).
+        _barometer (PressureSensor): Phidget PressureSensor object used for data acquisition.
+    """
+
     def __init__(self, data_rate):
+        """
+        Initializes the PhidgetBarometer with a specified data rate.
+
+        Args:
+            data_rate (int): The desired data rate for the barometer (in Hz).
+        """
         self._pressure = 0.0  # Pressure in Pascals
         self._data_rate = data_rate  # Desired data rate
 
@@ -18,50 +36,64 @@ class PhidgetBarometer:
         self._barometer.setOnAttachHandler(self.on_attach)
         self._barometer.setOnPressureChangeHandler(self.updatePressure)
 
-        # Open the barometer
+        # Open the barometer and wait for attachment
         self._barometer.openWaitForAttachment(5000)
 
     def stop(self):
-        """Stop the barometer by closing the connection."""
+        """
+        Stops the barometer by closing the connection.
+
+        This method terminates the data collection and releases the resources.
+        """
         self._barometer.close()
 
     def updatePressure(self, barometer, pressure):
         """
-        Update the pressure value and timestamp.
-        :param pressure: The pressure reading in Pascals.
-        :param timestamp: The timestamp of the reading.
+        Updates the pressure reading from the barometer.
+
+        This method is triggered whenever a new pressure reading is available. It stores the latest pressure measurement.
+
+        Args:
+            barometer (PressureSensor): The barometer object triggering the update.
+            pressure (float): The pressure reading in Pascals.
         """
         self._pressure = pressure
 
-    def on_attach(self, Barometer):
+    def on_attach(self, barometer):
         """
         Event handler for when the barometer is attached.
-        Resets the timestamp and sets the data rate.
+
+        This method is called when the barometer device is connected. It resets the timestamp and sets the data rate
+        to the desired value, ensuring it falls within the supported range.
+
+        Args:
+            barometer (PressureSensor): The barometer object that was attached.
         """
-        self._timestamp = 0  # Reset timestamp
+        self._timestamp = 0  # Reset timestamp when the device is attached
         
-        # Validate and set the data rate
+        # Validate and set the data rate within the allowable range
         min_data_rate = self._barometer.getMinDataRate()
         max_data_rate = self._barometer.getMaxDataRate()
         if self._data_rate < min_data_rate or self._data_rate > max_data_rate:
             self.stop()
-            raise Exception(f"""
-                Invalid Data Rate ({self._data_rate})
-                Data Rate must be between {min_data_rate} and {max_data_rate}
-            """)
+            raise Exception(f"Invalid Data Rate ({self._data_rate}). Data Rate must be between {min_data_rate} and {max_data_rate}.")
         self._barometer.setDataRate(self._data_rate)
 
     def is_attached(self):
         """
-        Check if the barometer is attached.
-        :return: True if attached, False otherwise.
+        Checks if the barometer is currently attached.
+
+        Returns:
+            bool: True if the barometer is attached, False otherwise.
         """
         return self._barometer.getAttached()
 
     def getPressure(self):
         """
-        Get the current pressure reading.
-        :return: Pressure in Pascals.
+        Retrieves the current pressure reading.
+
+        Returns:
+            float: The current pressure in Pascals.
         """
         return self._pressure
 

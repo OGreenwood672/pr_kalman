@@ -3,6 +3,40 @@ import numpy as np
 # Touch at your own risk
 
 class KalmanFilter:
+
+    """
+    A Kalman filter for estimating the height and velocity of an object based on accelerometer and barometer measurements.
+    
+    The filter combines the noisy measurements from both sensors (accelerometer and barometer) and updates its state
+    (height and velocity) over time. It uses the Kalman filter's prediction and update steps to improve the accuracy of
+    the estimates.
+
+    Attributes:
+        x (numpy.ndarray): The state vector, consisting of height and velocity.
+        P (numpy.ndarray): The covariance matrix, representing uncertainty in the state.
+        accelerometer_variance (float): The variance (uncertainty) of the accelerometer measurements.
+        barometer_variance (float): The variance (uncertainty) of the barometer measurements.
+        Q (numpy.ndarray): The process noise covariance matrix, which varies based on the time step (dt).
+        H (numpy.ndarray): The measurement matrix for the barometer, which only measures height.
+        R_barometer (numpy.ndarray): The measurement noise covariance matrix for the barometer.
+
+    Methods:
+        __init__(initial_height=0, initial_velocity=0, accelerometer_variance=0.2, barometer_variance=0.2):
+            Initializes the Kalman filter with given initial height, velocity, and measurement variances.
+        
+        predict_with_accelerometer(acceleration, dt):
+            Predicts the next state (height and velocity) using the accelerometer measurements and time step.
+        
+        update_with_barometer(barometer_height):
+            Updates the filter's state using the barometer's height measurement.
+        
+        predict_with_state(height, velocity, dt):
+            Predicts the next state using direct measurements of height and velocity.
+        
+        get_estimate():
+            Returns the current estimates of height and velocity.
+    """
+
     def __init__(
             self,
             initial_height=0,
@@ -10,6 +44,15 @@ class KalmanFilter:
             accelerometer_variance=0.2,
             barometer_variance=0.2
         ):
+        """
+        Initializes the Kalman filter with initial state (height and velocity) and measurement variances.
+
+        Args:
+            initial_height (float): The initial height estimate (default is 0).
+            initial_velocity (float): The initial velocity estimate (default is 0).
+            accelerometer_variance (float): The variance (uncertainty) of the accelerometer measurements (default is 0.2).
+            barometer_variance (float): The variance (uncertainty) of the barometer measurements (default is 0.2).
+        """
         # Initial state (height, velocity)
         self.x = np.array([[initial_height], [initial_velocity]])
         
@@ -29,6 +72,13 @@ class KalmanFilter:
         self.R_barometer = np.array([[barometer_variance]])
 
     def predict_with_accelerometer(self, acceleration, dt):
+        """
+        Predicts the next state (height and velocity) using the accelerometer measurement and time step.
+
+        Args:
+            acceleration (float): The measured acceleration (from accelerometer).
+            dt (float): The time step (in seconds) since the last prediction.
+        """
         # State transition matrix
         A = np.array([[1, dt],
                      [0, 1]])
@@ -48,6 +98,12 @@ class KalmanFilter:
         self.P = np.dot(np.dot(A, self.P), A.T) + self.Q
 
     def update_with_barometer(self, barometer_height):
+        """
+        Updates the Kalman filter's state using the barometer's height measurement.
+
+        Args:
+            barometer_height (float): The height measurement from the barometer.
+        """
         # Measurement
         z = np.array([[barometer_height]])
         
@@ -84,12 +140,12 @@ class KalmanFilter:
 
     def predict_with_state(self, height, velocity, dt):
         """
-        Predict next state using direct height and velocity measurements
-        
+        Predicts the next state using direct measurements of height and velocity.
+
         Args:
-            height (float): Measured height
-            velocity (float): Measured velocity
-            dt (float): Time step in seconds
+            height (float): The measured height.
+            velocity (float): The measured velocity.
+            dt (float): The time step (in seconds) since the last prediction.
         """
         # State transition matrix
         A = np.array([[1, dt],
@@ -127,10 +183,41 @@ class KalmanFilter:
         self.P = np.dot((np.eye(2) - np.dot(K, H)), P_pred)
 
     def get_estimate(self):
+        """
+        Returns the current estimates of height and velocity.
+
+        Returns:
+            tuple: The current estimates of height and velocity (height, velocity).
+        """
         return self.x[0, 0], self.x[1, 0]  # Height and velocity
 
 class SingleValueKalmanFilter:
+    """
+    A Kalman filter implementation that estimates a value and its rate of change over time using sensor measurements.
+
+    The filter estimates the value based on noisy measurements and updates its estimate over time by taking into account
+    the rate of change (velocity) of the value. It uses a state vector that includes both the value and its rate of change
+    and applies the Kalman filter's prediction and update steps.
+
+    Attributes:
+        x (numpy.ndarray): State vector containing the value and its rate of change (velocity).
+        P (numpy.ndarray): Covariance matrix representing the uncertainty in the state vector.
+        R (numpy.ndarray): Measurement noise covariance matrix.
+        H (numpy.ndarray): Measurement matrix that defines how the state vector relates to the measurements.
+
+    Methods:
+        __init__(initial=0, variance=0.1): Initializes the Kalman filter with an initial value and measurement variance.
+        update(measured_value, dt): Updates the filter with a new value measurement and the time step since the last update.
+    """
+
     def __init__(self, initial=0, variance=0.1):
+        """
+        Initializes the Kalman filter with the given initial value and measurement variance.
+
+        Args:
+            initial (float): The initial estimate of the value to be tracked. Default is 0.
+            variance (float): The variance (uncertainty) in the measurements. Default is 0.1.
+        """
         # State vector [value,value_rate_of_change]
         self.x = np.array([[initial],
                           [0.0]])  # assume initial rate of change is 0
@@ -147,14 +234,18 @@ class SingleValueKalmanFilter:
         
     def update(self, measured_value, dt):
         """
-        Update the filter with a new value measurement
-        
+        Updates the filter's estimate based on a new measurement and time step.
+
+        This method performs the prediction and update steps of the Kalman filter algorithm:
+        1. Predict the new state based on the previous state.
+        2. Update the state estimate using the new measurement.
+
         Args:
-            measured_value (float): Raw value measurement
-            dt (float): Time step in seconds
-        
+            measured_value (float): The raw measurement of the value (e.g., from a sensor).
+            dt (float): The time step in seconds since the last update (delta time).
+
         Returns:
-            float: Filtered value value
+            float: The filtered estimate of the value after applying the Kalman filter.
         """
         # State transition matrix
         F = np.array([[1, dt],

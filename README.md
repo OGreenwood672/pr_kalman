@@ -104,3 +104,8 @@
 - For consistent results, follow the recommended movement pattern during data collection.
 - **Always activate the virtual environment before running any scripts** using the instructions provided in the "First Time Setup Instructions."
 - Remember to deactivate the virtual environment when finished by running `deactivate`.
+
+
+## Documentation
+
+- Run `pdoc PhidgetUtils sensor_fusion analyse_journey.py analyse_multi_journey.py globals.py utils.py`
