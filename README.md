@@ -26,6 +26,7 @@
      python3 -m venv venv
      source venv/bin/activate
      pip install -r requirements.txt
+     sudo apt-get install python3-tk
      ```
 
 3. **Deactivate the Virtual Environment:**
