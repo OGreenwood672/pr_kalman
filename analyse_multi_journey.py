@@ -522,6 +522,7 @@ def main():
     #     df.loc[i:, [MODEL_DISPLACEMENT]] += df[MODEL_DISPLACEMENT].iloc[i - 1]
     #     df.loc[i:, [BAROMETER_HEIGHT]] += df[BAROMETER_HEIGHT].iloc[i - 1]
 
+    chart(df, MODEL_VELOCITY)
     chart(df, MODEL_DISPLACEMENT)
     chart(df, BAROMETER_HEIGHT)
     chart(df, TRUE_DISPLACEMENT)

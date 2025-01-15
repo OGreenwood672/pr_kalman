@@ -92,6 +92,8 @@ def analyse_journey(journey):
 
     integrate(journey, ACCELERATION, TIMESTAMPS, MODEL_VELOCITY)
 
+    linear_offset(journey, MODEL_VELOCITY, journey[MODEL_VELOCITY].iloc[len(journey) - 1], 0, len(journey) - 1)
+
     integrate(journey, MODEL_VELOCITY, TIMESTAMPS, MODEL_DISPLACEMENT)
 
     journey.loc[0:len(journey), [BAROMETER_HEIGHT]] = journey[PRESSURE].apply(calculate_height)
