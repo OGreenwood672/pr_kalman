@@ -69,7 +69,7 @@ def get_floor_journey(delta_heights):
     return journey
 
 
-def get_stages(df, maxlen=20, mean_threshold=0.05, variance_threshold=0.0001, buffer_seconds=5):
+def get_stages_from_accelerometer(df, maxlen=20, mean_threshold=0.05, variance_threshold=0.0001, buffer_seconds=5):
     """
     Updates the 'STAGES' column in the DataFrame based on the rolling mean and variance of acceleration
     (ACCELERATION) to classify whether the lift is stationary or moving.
@@ -108,11 +108,6 @@ def get_stages(df, maxlen=20, mean_threshold=0.05, variance_threshold=0.0001, bu
     assert ACCELERATION in df.columns, f"{ACCELERATION} must be contained in the DataFrame"
     assert TIMESTAMPS in df.columns, f"{TIMESTAMPS} must be contained in the DataFrame"
 
-    peak = None
-    peak_sign = None
-    min_peak = 0.1
-    cycle_complete = False
-
     dt = df[TIMESTAMPS].iloc[1] - df[TIMESTAMPS].iloc[0]
     dt_count = buffer_seconds // dt
 
@@ -142,23 +137,9 @@ def get_stages(df, maxlen=20, mean_threshold=0.05, variance_threshold=0.0001, bu
                 df.loc[max(i - (dt_count // 2), 0):, STAGES] = curr_stage
                 last_activity = df[TIMESTAMPS].iloc[i]  # Update the last activity timestamp
 
-                peak = None
-                peak_sign = None
-                cycle_complete = False
-
         elif curr_stage == 1:
 
-            if min_peak < abs(df[ACCELERATION].iloc[i]):
-                if peak == None:
-                    peak = abs(df[ACCELERATION].iloc[i])
-                    peak_sign = sign(df[ACCELERATION].iloc[i])
-                elif abs(peak) > abs(df[ACCELERATION].iloc[i]) and sign(df[ACCELERATION].iloc[i]) == peak_sign:
-                    peak = abs(df[ACCELERATION].iloc[i])
-                elif peak_sign != sign(df[ACCELERATION].iloc[i]):
-                    cycle_complete = True
-
-
-            if abs(rolling_mean) <= mean_threshold and rolling_variance <= variance_threshold and cycle_complete:
+            if abs(rolling_mean) <= mean_threshold and rolling_variance <= variance_threshold:
 
                 time_since_last_activity = df[TIMESTAMPS].iloc[i] - last_activity
                 if time_since_last_activity > buffer_seconds:
@@ -249,6 +230,66 @@ def get_stages_from_barometer(df, maxlen=20, variance_threshold=0.0001, buffer_s
         df.loc[i, STAGES] = curr_stage
 
     return df
+
+def priority_or(df, col1, col2, new_col):
+    """
+    Perform a priority-based logical OR operation on two binary columns of a DataFrame.
+
+    This function combines the values of `col1` and `col2` into a new column (`new_col`) 
+    based on specific priority rules:
+      - `col1` has higher priority and immediately sets `new_col` to `1` for that row and 
+        subsequent rows until neither column contains a `1`.
+      - A `1` in `col2` is included in `new_col` **only if** it is followed by a `1` 
+        in `col1` within the subsequent rows.
+
+    The function iterates row by row, tracking the state (`in_stage`) to handle sequences of `1`s
+    in `col1` or `col2`.
+
+    Args:
+        df (pd.DataFrame): The input DataFrame containing the binary columns.
+        col1 (str): The name of the first column, representing high-priority events.
+        col2 (str): The name of the second column, representing low-priority events.
+        new_col (str): The name of the new column to store the result.
+
+    Returns:
+        pd.DataFrame: The updated DataFrame with the `new_col` column added.
+
+    Notes:
+        - Assumes `col1` and `col2` contain only binary values (0 or 1).
+        - If `col1` and `col2` contain invalid values or the DataFrame is improperly structured, 
+          unexpected behavior may occur.
+    """
+
+    in_stage = False
+    df.loc[0:len(df), [new_col]] = 0
+
+    i = 0
+    while i < len(df):
+
+        if in_stage:
+            if df[col1].iloc[i] == 1 or df[col2].iloc[i] == 1:
+                df.at[i, new_col] = 1
+            else:
+                in_stage = False
+        
+        elif df[col1].iloc[i] == 1:
+            in_stage = True
+            df.at[i, new_col] = 1
+        
+        elif df[col2].iloc[i] == 1:
+
+            j = i
+            while j < len(df) - 1 and df[col1].iloc[j] != 1 and df[col2].iloc[j] == 1:
+                j += 1
+            
+            if df[col1].iloc[j] == 1:
+                in_stage = True
+                df.at[i, new_col] = 1
+        
+        i += 1
+    
+    return df
+
 
 
 
@@ -364,7 +405,7 @@ def adjust_timestamps(df):
         df (pd.DataFrame): The DataFrame containing the 'TIMESTAMPS' column to be adjusted.
 
     Returns:
-        None: The function modifies the DataFrame in place, so no value is returned.
+        df (pd.DataFrame): The DataFrame.
     
     Example:
         adjust_timestamps(df)
@@ -372,8 +413,9 @@ def adjust_timestamps(df):
 
     df = df[df[TIMESTAMPS] != 0]
     df.reset_index(drop=True, inplace=True)
-    df[TIMESTAMPS] -= df[TIMESTAMPS].iloc[0]
-    df[TIMESTAMPS] /= 1000
+    df.loc[0:len(df), [TIMESTAMPS]] -= df[TIMESTAMPS].iloc[0]
+    df.loc[0:len(df), [TIMESTAMPS]] /= 1000
+    return df
 
 
 def main():
@@ -418,24 +460,30 @@ def main():
 
     initilise_columns(df)
 
-    adjust_timestamps(df)
+    df = adjust_timestamps(df)
 
     
-    # Get initial stages
-    df[ACCELERATION] -= df[ACCELERATION].round(3).mode().mean()
-
     df[BAROMETER_HEIGHT] = df[PRESSURE].apply(calculate_height)
     drift_correction(df, BAROMETER_HEIGHT, BAROMETER_DRIFT_CORRECTION_BOUND)
     smooth_kalman(df, BAROMETER_HEIGHT, BAROMETER_VARIANCE)
 
-    get_stages_from_barometer(df, 20, 0.1, 10)
+    get_stages_from_barometer(df, 20, 0.1, 8)
+    df['barometer_stages'] = df[STAGES]
 
-    # get_stages(df, maxlen=15, mean_threshold=0.02, variance_threshold=0.00005, buffer_seconds=3)
+    df[ACCELERATION] -= df[ACCELERATION].round(3).mode().mean()
+    get_stages_from_accelerometer(df, maxlen=15, mean_threshold=0.02, variance_threshold=0.0001, buffer_seconds=3)
+    df['accelerometer_stages'] = df[STAGES]
+
+    df = priority_or(df, 'barometer_stages', 'accelerometer_stages', STAGES)
 
     df[STAGES] *= 15
     chart(df, BAROMETER_HEIGHT, STAGES)
     df.loc[0:len(df), [BAROMETER_HEIGHT]] = 0
     df[STAGES] /= 15
+
+    df[STAGES] /= 8
+    chart(df, ACCELERATION, STAGES)
+    df[STAGES] *= 8
     
     delta_heights_model_displacement = []
     delta_heights_barometer_height = []
