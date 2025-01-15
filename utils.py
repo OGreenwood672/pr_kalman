@@ -1,4 +1,9 @@
 from sensor_fusion.kalman_filters import SingleValueKalmanFilter
+
+import sys
+from PyQt6 import QtWidgets
+QtWidgets.QApplication(sys.argv)
+
 import matplotlib.pyplot as plt
 
 from globals import *

@@ -21,8 +21,8 @@ def get_true_values(df, accelerometer_variance, barometer_variance):
         else:
             dt = (df[TIMESTAMPS].iloc[i] - df[TIMESTAMPS].iloc[i - 1])
 
-        # kf.predict_with_accelerometer(df[ACCELERATION].iloc[i], dt)
-        kf.predict_with_state(df[MODEL_DISPLACEMENT].iloc[i], df[MODEL_VELOCITY].iloc[i], dt)
+        kf.predict_with_accelerometer(df[ACCELERATION].iloc[i], dt)
+        # kf.predict_with_state(df[MODEL_DISPLACEMENT].iloc[i], df[MODEL_VELOCITY].iloc[i], dt)
 
         # kf.update_with_model(df['model_height'], df['model_velocity'])
         kf.update_with_barometer(df[BAROMETER_HEIGHT].iloc[i])

@@ -1,7 +1,6 @@
 
 import pandas as pd
 import numpy as np
-import os
 from collections import deque
 
 from globals import *
@@ -133,6 +132,72 @@ def get_stages(df, maxlen=20, mean_threshold=0.05, variance_threshold=0.0001, bu
 
     return df
 
+def get_stages_from_barometer(df, maxlen=20, variance_threshold=0.0001, buffer_seconds=2):
+
+    """
+    Updates the STAGES column based on changes in rolling mean and variance of ACCELERATION.
+    0: Lift is stationary
+    1: Lift is not stationary :)
+
+    Args:
+        df (pd.DataFrame): The DataFrame containing the ACCELERATION and TIMESTAMP columns.
+        maxlen (int): Window size for rolling mean and variance calculations.
+        mean_threshold (float): Threshold for the rolling mean.
+        variance_threshold (float): Threshold for the variance.
+        buffer_seconds (float): Minimum time (in seconds) of inactivity before transitioning from stage 1 -> 0.
+
+    Returns:
+        pd.DataFrame: The updated DataFrame with the STAGES column.
+    """
+
+    dt = df[TIMESTAMPS].iloc[1] - df[TIMESTAMPS].iloc[0]
+    dt_count = buffer_seconds // dt
+
+    # Initialize rolling window
+    rolling_window = deque(maxlen=maxlen)
+    df[STAGES] = 0  # Initialize STAGES column
+
+    # Initialize stage and time tracking
+    curr_stage = 0
+
+    for i in range(len(df)):
+        # Add current acceleration to the rolling window
+        rolling_window.append(df[BAROMETER_HEIGHT].iloc[i])
+        
+        if len(rolling_window) < maxlen:
+            continue  # Skip until the rolling window is full
+        
+        # Calculate rolling mean and variance
+        rolling_variance = np.var(rolling_window)
+        condition = rolling_variance >= variance_threshold
+
+        # rw_list = list(rolling_window)
+        # mean1 = np.mean(rw_list[:maxlen // 2])
+        # mean2 = np.mean(rw_list[maxlen // 2:])
+        # condition = abs(mean1 - mean2) > 0.05
+        
+        # Handle transitions
+        if curr_stage == 0:
+            if condition:
+                curr_stage = 1
+                df.loc[max(i - int(dt_count / 2), 0):, STAGES] = curr_stage
+                last_activity = df[TIMESTAMPS].iloc[i]  # Update the last activity timestamp
+
+        elif curr_stage == 1:
+
+            if not condition:
+
+                time_since_last_activity = df[TIMESTAMPS].iloc[i] - last_activity
+                if time_since_last_activity > buffer_seconds / 2:
+                    curr_stage = 0
+                    df.loc[max(i - maxlen, 0):, STAGES] = curr_stage
+            else:
+                last_activity = df[TIMESTAMPS].iloc[i]  # Update the last activity timestamp
+        
+        df.loc[i, STAGES] = curr_stage
+
+    return df
+
 
 
 def split_dataframe_by_stages(df, buffer):
@@ -196,11 +261,20 @@ def main():
     
     # Get initial stages
     df[ACCELERATION] -= df[ACCELERATION].round(3).mode().mean()
-    get_stages(df, maxlen=15, mean_threshold=0.02, variance_threshold=0.00005, buffer_seconds=3)
 
-    df[STAGES] /= 8
-    chart(df, ACCELERATION, STAGES)
-    df[STAGES] *= 8
+    from sensor_fusion.height import calculate_height
+    df[BAROMETER_HEIGHT] = df[PRESSURE].apply(calculate_height)
+    drift_correction(df, BAROMETER_HEIGHT, BAROMETER_DRIFT_CORRECTION_BOUND)
+    smooth_kalman(df, BAROMETER_HEIGHT, BAROMETER_VARIANCE)
+
+    get_stages_from_barometer(df, 20, 0.1, 10)
+
+    # get_stages(df, maxlen=15, mean_threshold=0.02, variance_threshold=0.00005, buffer_seconds=3)
+
+    df[STAGES] *= 15
+    chart(df, BAROMETER_HEIGHT, STAGES)
+    df.loc[0:len(df), [BAROMETER_HEIGHT]] = 0
+    df[STAGES] /= 15
     
     delta_heights_model_displacement = []
     delta_heights_barometer_height = []
